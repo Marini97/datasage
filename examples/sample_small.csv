@@ -1,0 +1,21 @@
+customer_id,name,age,email,salary,join_date,department
+1,Alice Johnson,28,alice.johnson@email.com,45000,2022-01-15,Engineering
+2,Bob Smith,35,,52000,2021-06-20,Marketing
+3,Carol Davis,42,carol.davis@email.com,38000,2023-02-10,Sales
+4,David Wilson,29,david.wilson@email.com,47000,2022-08-05,Engineering
+5,Eve Brown,31,eve.brown@email.com,41000,2023-01-12,HR
+6,Frank Miller,45,,49000,2020-11-30,Sales
+7,Grace Lee,33,grace.lee@email.com,44000,2022-03-22,Marketing
+8,Henry Taylor,27,henry.taylor@email.com,46000,2023-04-18,Engineering
+9,Ivy Chen,39,ivy.chen@email.com,53000,2021-09-14,Marketing
+10,Jack Thompson,36,,48000,2022-07-08,Sales
+11,Kate Wilson,32,kate.wilson@email.com,42000,2023-03-01,HR
+12,Liam Garcia,40,liam.garcia@email.com,55000,2021-12-15,Engineering
+13,Mia Rodriguez,26,mia.rodriguez@email.com,39000,2023-05-20,Sales
+14,Noah Martinez,34,noah.martinez@email.com,50000,2022-02-28,Marketing
+15,Olivia Anderson,37,olivia.anderson@email.com,51000,2021-10-10,Engineering
+16,Paul White,43,,45000,2022-09-12,HR
+17,Quinn Harris,30,quinn.harris@email.com,43000,2023-01-25,Sales
+18,Rita Clark,38,rita.clark@email.com,47000,2022-06-18,Marketing
+19,Sam Lewis,25,sam.lewis@email.com,40000,2023-04-05,Engineering
+20,Tina Walker,41,tina.walker@email.com,49000,2021-08-22,Sales
