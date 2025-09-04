@@ -248,8 +248,7 @@ class OutputVerifier:
         
         annotations = ["## Verification Notes\n"]
         annotations.append(
-            "*The following numeric claims in this report have been automatically "
-            "cross-checked against the source data:*\n"
+            "*The following numeric claims in this report have been automatically cross-checked against the source data:*\n"
         )
         
         for i, claim in enumerate(failed_claims, 1):

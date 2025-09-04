@@ -1,242 +1,195 @@
-# DataSage 🧙‍♂️
+# DataSage — LLM Data Quality Profiler
 
-> *"Your AI companion for understanding messy datasets - now with interactive chat and comprehensive data exploration!"*
+> Understand messy datasets fast, with privacy-first analysis, clear visualisations, and optional AI-generated summaries.
 
-DataSage is a professional-grade data quality profiler powered by local AI that helps you understand your datasets through comprehensive analysis, interactive visualizations, and intelligent insights - all while keeping your data completely private.
+---
 
-## ✨ What Makes DataSage Special
+## Why DataSage?
 
-- 🔒 **Privacy First** - Your data never leaves your machine
-- 🤖 **Multi-Model AI** - OpenAI API support + local models with intelligent fallbacks
-- 💬 **Interactive Chat** - Ask questions about your data and get AI-powered answers
-- 📊 **Professional Visualizations** - Comprehensive data exploration with charts and plots
-- ⚡ **Smart Fallbacks** - Always provides valuable insights, even when AI struggles
-- 🎯 **Data Scientist Tools** - Distribution analysis, correlation matrices, outlier detection
-- 🌐 **Modern Web Interface** - Beautiful Streamlit UI with real-time analysis
+- **Privacy-first:** your data stays on your machine by default (local model).  
+- **Actionable insights:** concise, explainable summaries of quality issues.  
+- **Two ways to use:** a friendly web UI *and* a simple CLI.  
+- **Batteries included:** distributions, correlations, missingness patterns, and outlier detection with professional-looking charts.  
+- **Optional AI:** plug in an API key to upgrade summaries; otherwise DataSage still produces useful, deterministic reports.
 
-## 🚀 Quick Start
+---
 
-### Installation
+## What it does
+
+Given a CSV (or a `pandas` DataFrame), DataSage:
+
+1. Profiles the dataset (shape, memory, types, uniques, missingness, outliers, correlations).
+2. Builds a short, plain-English report (local LLM by default; optionally OpenAI).
+3. Lets you **explore interactively** (histograms, heatmaps, missingness, outliers) or script it from the CLI.
+4. Exports a clean Markdown report you can paste into a notebook, issue, or slide.
+
+---
+
+## Quick start
+
+### 1) Install
+
 ```bash
-# Clone and set up
 git clone https://github.com/Marini97/datasage.git
 cd datasage
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-
-# Install dependencies
+source .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### Launch the Web Interface (Recommended)
+### 2) Run the web app (recommended)
+
 ```bash
 python -m datasage.cli web
-# Opens at http://localhost:8501
+# Then open http://localhost:8501
 ```
 
-### Command Line Usage
+### 3) Or run from the CLI
+
 ```bash
-# Analyze a dataset
-python -m datasage.cli profile data.csv
+# Basic profiling (local, no API keys needed)
+python -m datasage.cli profile path/to/data.csv
 
-# With enhanced AI (if OpenAI API available)
-export OPENAI_API_KEY="your-key-here"
-python -m datasage.cli profile data.csv
+# Save a Markdown report
+python -m datasage.cli profile path/to/data.csv -o report.md
 ```
 
-## 🎯 Three Powerful Interfaces
+---
 
-### 1. 📊 Dataset Explorer
-- **Interactive file upload** with drag-and-drop support
-- **Sample datasets** (Tips, Titanic, Iris, etc.) for testing
-- **Comprehensive statistics** and data quality metrics
-- **Visual exploration** with distribution plots, correlation matrices
-- **Missing data analysis** with pattern visualization
-- **Outlier detection** with interactive charts
+## Optional: enhanced AI summaries
 
-### 2. � AI Report Generation  
-- **Multi-tier AI system** for highest quality reports
-- **Professional analysis** with actionable recommendations
-- **Quality assessment** across completeness, consistency, integrity
-- **Statistical fallback** ensures always useful output
-- **Downloadable reports** in Markdown format
+If you want higher-quality narrative summaries (on top of the local model / statistical fallback), export your key:
 
-### 3. 💬 Interactive Chat
-- **Ask anything** about your dataset
-- **Real-time AI responses** with full dataset context
-- **Conversation history** to track your analysis
-- **Quick insight buttons** for common questions
-- **Enhanced with exploration data** for accurate answers
-
-## 🔍 Data Science Features
-
-### Professional Analysis Tools
-- **Distribution Analysis**: Histograms, KDE plots, skewness detection
-- **Correlation Matrix**: Heatmaps with strength indicators  
-- **Missing Data Patterns**: Visual missing data analysis
-- **Outlier Detection**: IQR-based detection with box plots
-- **Data Quality Metrics**: Comprehensive quality assessment
-- **Statistical Summaries**: Professional-grade statistics
-
-### AI-Powered Insights
-```python
-# Example AI responses:
-"Your dataset shows strong positive correlation (0.89) between 
-total_bill and tip amounts, suggesting tip percentage increases 
-with bill size. The 3 outliers in the tip column (>$5.00) may 
-represent special occasions or data entry errors..."
+```bash
+export OPENAI_API_KEY="sk-..."
+# (Optional) custom base: export OPENAI_API_BASE="https://api.openai.com/v1"
 ```
 
-## 🤖 Advanced AI Architecture
+Then re-run the same commands; DataSage will automatically use the remote model when available.
 
-### Multi-Model Support
-1. **OpenAI API** (highest quality) - GPT-3.5/4 when API key available
-2. **Local FLAN-T5** - Fast, private, runs on CPU/GPU
-3. **Statistical Fallback** - Professional reports when AI unavailable
+> Prefer local only? Do nothing — DataSage runs with a local model or a purely statistical fallback.
 
-### Enhanced Prompting
-- **Few-shot examples** for consistent output quality
-- **Statistical context** from comprehensive data exploration
-- **Structured prompts** with data scientist insights
-- **Quality validation** with automatic fallbacks
+---
 
-## 📋 Example Output
+## Configuration
 
-```markdown
-# Data Quality Report: Restaurant Tips Dataset
+Environment variables (all optional):
+
+```bash
+# Local model name (Hugging Face)
+export DATASAGE_MODEL="google/flan-t5-base"
+
+# Generation controls (keep low for determinism)
+export DATASAGE_MAX_TOKENS=300
+export DATASAGE_TEMPERATURE=0.0
+```
+
+CLI flags (selected):
+
+```bash
+python -m datasage.cli profile data.csv   -o report.md   --summary-only   --debug
+```
+
+---
+
+## Features at a glance
+
+- **Dataset overview:** rows/columns, memory footprint, per-type breakdown.
+- **Per-column stats:** type, non-null %, uniques, sample values.
+- **Numerical:** min/max/mean/std, quartiles & IQR, zero/negative counts, outliers.
+- **Categorical:** top-k values with frequencies, rare categories.
+- **Datetime:** min/max, coverage period.
+- **Text:** average length, empty-string rate.
+- **Quality flags:** high missingness, likely IDs, skew, duplicates, many rares.
+- **Visuals:** histograms/KDE, correlation heatmaps, missingness patterns, boxplots.
+- **Reports:** Markdown with Overview, Quality Summary, Column Profiles.
+- **Chat (web app):** ask questions about your data; responses are grounded in the profile.
+
+---
+
+## Example
+
+```text
+# Data Quality Report
 
 ## Dataset Overview
-- **244 rows × 7 columns** using 0.13 MB memory
-- **Mix of numerical and categorical data**
-- **6 outliers detected** across 2 columns
-- **High correlation (0.89)** between total_bill and tip
+- 244 rows × 7 columns (≈0.13 MB)
+- Mixed numeric and categorical types
+- 6 outliers across 2 columns
+- High correlation (0.89) between total_bill and tip
 
 ## Key Insights
-- Strong tipping patterns correlate with bill amounts
-- Weekend meals show 15% higher average tips
-- 3 potential data entry errors in tip column
-- No missing values detected (excellent completeness)
-
-## Recommendations
-1. Investigate outliers in tip column (>$5.00)
-2. Consider tip percentage analysis for better insights
-3. Weekend vs weekday analysis shows business opportunities
+- Tipping patterns scale with bill amount
+- No missing values detected
+- 3 potential data entry errors in “tip”
 ```
 
-## ⚙️ Configuration
+*(Numbers above are illustrative; your dataset will differ.)*
 
-### Basic Configuration
-```bash
-# Use sample datasets
-python -m datasage.cli web
+---
 
-# Debug mode for troubleshooting
-python -m datasage.cli profile data.csv --debug
+## Project structure
+
+```
+.
+├─ datasage/                # app + CLI + profiling + prompts + reporting
+├─ examples/                # sample CSVs / demo assets
+├─ tests/                   # unit tests
+├─ .github/workflows/       # CI configuration
+├─ README.md
+├─ requirements.txt
+├─ pyproject.toml
+└─ LICENSE                  # MIT
 ```
 
-### Enhanced AI Setup
-```bash
-# For best AI quality, set OpenAI API key
-export OPENAI_API_KEY="sk-..."
-export OPENAI_API_BASE="https://api.openai.com/v1"  # Optional
+**Core modules (in `datasage/`):**
 
-# Then run normally - will automatically use OpenAI
-python -m datasage.cli profile data.csv
+- `cli.py` — entry point for CLI & web app
+- `profiler.py` — dataframe → stats & quality signals
+- `prompt_builder.py` — compact prompts from stats
+- `model.py` — local LLM loader + generation helpers
+- `enhanced_generator.py` — optional OpenAI + fallbacks
+- `report_formatter.py` — stitch chunks into Markdown
+- `web_app.py` — Streamlit interface
+
+---
+
+## Architecture
+
+```
+CSV → pandas → profiler ─┐
+                         ├─→ prompt_builder → { local LLM | OpenAI | statistical fallback } → report_formatter → Markdown
+Profiles & visuals ──────┘
+                                 │
+                                 └─────────────────────────────→ Streamlit UI (explore + chat)
 ```
 
-### Custom Model Configuration  
-```bash
-export DATASAGE_MODEL="microsoft/DialoGPT-small"  # Custom local model
-export DATASAGE_MAX_TOKENS=500
-export DATASAGE_TEMPERATURE=0.1
-```
+- **Deterministic by default:** temperature `0.0`, bounded tokens.  
+- **Graceful degradation:** if remote LLMs are absent/unavailable, DataSage still produces a clear, useful report.  
+- **No data leaves the machine** unless you opt into a remote API.
 
-## 🛠️ Development
+---
+
+## Development
 
 ```bash
-# Development setup
+# Dev install
 pip install -r requirements.txt
 pip install -e .
 
-# Run tests
+# Tests
 pytest tests/
 
-# Test web interface
-python test_web.py
-
-# Code formatting
-black datasage/
+# Lint/format (if configured in pyproject)
 ruff check datasage/
+black datasage/
 ```
 
-## 📊 What's Included
+---
 
-### Core Modules
-- `profiler.py` - Comprehensive statistical analysis
-- `model.py` - Multi-model LLM support with fallbacks  
-- `enhanced_generator.py` - OpenAI + local model orchestration
-- `prompt_builder.py` - Advanced prompt engineering
-- `report_formatter.py` - Professional report assembly
-- `web_app.py` - Interactive Streamlit interface
-- `cli.py` - Command line interface
+## Licence
 
-### Key Features
-- ✅ **Multi-format support** (CSV with more formats planned)
-- ✅ **Interactive data exploration** with professional visualizations
-- ✅ **AI chat interface** for dataset Q&A
-- ✅ **Quality assessment** with actionable recommendations
-- ✅ **Outlier detection** and missing data analysis
-- ✅ **Correlation analysis** with statistical significance
-- ✅ **Memory usage optimization** for large datasets
-
-## 🎯 Use Cases
-
-**Data Scientists & Analysts:**
-- Quick dataset understanding and quality assessment
-- Professional-grade statistical analysis and visualization
-- Interactive exploration before modeling
-
-**Business Users:**
-- Understand data quality issues in business datasets  
-- Get AI-powered insights without technical expertise
-- Generate reports for stakeholders
-
-**Students & Researchers:**
-- Learn data analysis through interactive exploration
-- Understand statistical concepts through visualization
-- Practice data quality assessment
-
-## 🔮 Recent Enhancements
-
-### v0.2.0 Features
-- ✨ **Interactive Chat Interface** - Ask questions about your data
-- � **Comprehensive Data Exploration** - Professional visualizations
-- 🤖 **Enhanced AI Integration** - OpenAI API + improved local models
-- 🎯 **Quality Improvements** - Better prompts and statistical fallbacks
-- 🌐 **Improved UI** - Reorganized interface with better UX
-
-## 🗺️ Roadmap
-
-**Coming Soon:**
-- � Advanced visualization options (scatter plots, time series)
-- 📁 Excel, Parquet, and JSON file support  
-- 🔗 Integration with pandas profiling and Great Expectations
-- 📊 Export visualizations and reports to PDF
-- 🤝 Collaboration features for team data analysis
-
-**Future Vision:**
-- 🧠 Advanced ML-powered data insights
-- 🔄 Real-time data monitoring and alerting
-- 📱 Mobile-responsive interface
-- 🌍 Multi-language support
-
-## 📜 License
-
-MIT License - see [LICENSE](LICENSE) for details.
-
-## 🤝 Contributing
-
-We welcome contributions! Check out our issues or submit your own ideas.
+MIT — see `LICENSE`.
 
 ---
 
