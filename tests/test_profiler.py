@@ -75,7 +75,7 @@ class TestComputeNumericStats:
         series = pd.Series([1, 2, 3, 4, 5, 100])  # 100 is an outlier
         stats = compute_numeric_stats(series)
         
-        assert stats["outliers_iqr_count"] > 0
+        assert stats["outliers_count"] > 0
     
     def test_negative_count(self):
         series = pd.Series([-2, -1, 0, 1, 2])
@@ -87,13 +87,15 @@ class TestComputeNumericStats:
         series = pd.Series([0, 0, 1, 2, 3])
         stats = compute_numeric_stats(series)
         
-        assert stats["zeros_pct"] == 40.0  # 2 out of 5
+        assert stats["zeros_percentage"] == 40.0  # 2 out of 5
     
     def test_empty_series(self):
         series = pd.Series([], dtype=float)
         stats = compute_numeric_stats(series)
         
-        assert stats == {}
+        # Should return default values for empty series, not empty dict
+        assert stats["mean"] == 0.0
+        assert stats["outliers_count"] == 0
 
 
 class TestComputeCategoricalStats:
@@ -110,12 +112,13 @@ class TestComputeCategoricalStats:
         assert abs(top_values[0]["frequency_pct"] - 50.0) < 1.0
     
     def test_rare_values_count(self):
-        # Create data where some values appear < 1% of the time
-        data = ["Common"] * 99 + ["Rare"]  # Rare appears 1% of time
+        # Create data where some values appear < 1% of the time  
+        # With 200 items, 1% = 2, so values appearing once are rare
+        data = ["Common"] * 198 + ["Rare1", "Rare2"]  # Each rare value appears 0.5% of time
         series = pd.Series(data)
         stats = compute_categorical_stats(series)
         
-        assert stats["rare_values_count"] == 1
+        assert stats["rare_values_count"] == 2
 
 
 class TestComputeDatetimeStats:

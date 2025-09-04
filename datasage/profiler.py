@@ -28,11 +28,15 @@ def infer_column_type(series: pd.Series) -> str:
     if pd.api.types.is_datetime64_any_dtype(series):
         return "datetime"
     
+    # Check for boolean (before numeric, since bool is a subtype of numeric in pandas)
+    if pd.api.types.is_bool_dtype(series):
+        return "categorical"
+    
     # Try to parse as datetime if string-like
     if series.dtype == "object" and len(series.dropna()) > 0:
         sample = series.dropna().iloc[:min(100, len(series.dropna()))]
         try:
-            pd.to_datetime(sample, infer_datetime_format=True)
+            pd.to_datetime(sample, errors="raise")
             return "datetime"
         except (ValueError, TypeError):
             pass
@@ -86,7 +90,7 @@ def get_sample_values(series: pd.Series, max_samples: int = 3) -> List[str]:
 
 
 def compute_numeric_stats(series: pd.Series) -> Dict[str, Any]:
-    """Compute statistics for numeric columns.
+    """Compute detailed statistics for numeric columns.
     
     Args:
         series: Numeric pandas Series
@@ -94,38 +98,73 @@ def compute_numeric_stats(series: pd.Series) -> Dict[str, Any]:
     Returns:
         Dictionary of numeric statistics
     """
-    # Convert to numeric, coercing errors to NaN
-    numeric_series = pd.to_numeric(series, errors="coerce")
+    # Convert to numeric and drop non-numeric values
+    numeric_series = pd.to_numeric(series, errors='coerce').dropna()
     
-    if numeric_series.notna().sum() == 0:
-        return {}
+    if len(numeric_series) == 0:
+        return {
+            "mean": 0.0, "median": 0.0, "std": 0.0,
+            "min": 0.0, "max": 0.0, "q1": 0.0, "q3": 0.0,
+            "outliers_count": 0, "outliers_percentage": 0.0,
+            "negative_count": 0, "negative_percentage": 0.0,
+            "zeros_count": 0, "zeros_percentage": 0.0,
+            "skewness": 0.0, "kurtosis": 0.0
+        }
     
+    # Basic statistics
     stats = {
+        "mean": float(numeric_series.mean()),
+        "median": float(numeric_series.median()),
+        "std": float(numeric_series.std()),
         "min": float(numeric_series.min()),
         "max": float(numeric_series.max()),
-        "mean": float(numeric_series.mean()),
-        "std": float(numeric_series.std()),
         "q1": float(numeric_series.quantile(0.25)),
         "q3": float(numeric_series.quantile(0.75)),
     }
     
-    # Compute IQR and outliers
+    # Outlier detection using IQR method
     iqr = stats["q3"] - stats["q1"]
-    stats["iqr"] = float(iqr)
-    
-    # Count outliers using 1.5 * IQR rule
     lower_bound = stats["q1"] - 1.5 * iqr
     upper_bound = stats["q3"] + 1.5 * iqr
     outliers = numeric_series[(numeric_series < lower_bound) | (numeric_series > upper_bound)]
-    stats["outliers_iqr_count"] = int(len(outliers))
     
-    # Count negative values (useful for columns that should be non-negative)
-    stats["negative_count"] = int((numeric_series < 0).sum())
+    stats.update({
+        "outliers_count": len(outliers),
+        "outliers_percentage": (len(outliers) / len(numeric_series)) * 100 if len(numeric_series) > 0 else 0.0,
+    })
     
-    # Percentage of zeros
-    zero_count = (numeric_series == 0).sum()
-    total_count = numeric_series.notna().sum()
-    stats["zeros_pct"] = float(zero_count / total_count * 100) if total_count > 0 else 0.0
+    # Count statistics
+    negative_count = (numeric_series < 0).sum()
+    zeros_count = (numeric_series == 0).sum()
+    
+    stats.update({
+        "negative_count": int(negative_count),
+        "negative_percentage": (negative_count / len(numeric_series)) * 100 if len(numeric_series) > 0 else 0.0,
+        "zeros_count": int(zeros_count),
+        "zeros_percentage": (zeros_count / len(numeric_series)) * 100 if len(numeric_series) > 0 else 0.0,
+    })
+    
+    # Add advanced statistics if we have enough data
+    if len(numeric_series) > 1:
+        try:
+            skew_val = numeric_series.skew()
+            kurt_val = numeric_series.kurtosis()
+            # Convert to float safely using str conversion as intermediate step
+            try:
+                stats["skewness"] = float(str(skew_val)) if pd.notna(skew_val) else 0.0
+            except (ValueError, TypeError):
+                stats["skewness"] = 0.0
+            
+            try:
+                stats["kurtosis"] = float(str(kurt_val)) if pd.notna(kurt_val) else 0.0
+            except (ValueError, TypeError):
+                stats["kurtosis"] = 0.0
+        except Exception:
+            stats["skewness"] = 0.0
+            stats["kurtosis"] = 0.0
+    else:
+        stats["skewness"] = 0.0 
+        stats["kurtosis"] = 0.0
     
     return stats
 
@@ -157,9 +196,9 @@ def compute_categorical_stats(series: pd.Series) -> Dict[str, Any]:
             "frequency_pct": float(frequency_pct)
         })
     
-    # Count rare values (frequency < 1%)
-    rare_threshold = total_count * 0.01
-    rare_values_count = (value_counts < rare_threshold).sum()
+        # Count rare values (appearing less than 1% of the time)
+    rare_threshold = max(1, len(series) * 0.01)  # At least 1 occurrence
+    rare_values_count = sum(1 for count in value_counts if count < rare_threshold)
     
     return {
         "top_k_values": top_values,
@@ -179,7 +218,7 @@ def compute_datetime_stats(series: pd.Series) -> Dict[str, Any]:
     # Try to convert to datetime if not already
     if not pd.api.types.is_datetime64_any_dtype(series):
         try:
-            datetime_series = pd.to_datetime(series, infer_datetime_format=True, errors="coerce")
+            datetime_series = pd.to_datetime(series, errors="coerce")
         except (ValueError, TypeError):
             return {}
     else:
@@ -334,7 +373,7 @@ def profile_df(df: pd.DataFrame) -> Dict[str, Any]:
         df: The pandas DataFrame to profile
         
     Returns:
-        Dictionary containing the complete data profile
+        Dictionary containing comprehensive dataset profile
     """
     if df.empty:
         return {
@@ -342,8 +381,13 @@ def profile_df(df: pd.DataFrame) -> Dict[str, Any]:
                 "n_rows": 0,
                 "n_cols": 0,
                 "memory_usage_mb": 0.0,
-                "duplicate_rows_pct": 0.0
+                "duplicate_rows_pct": 0.0,
+                "column_types": {"numeric": 0, "categorical": 0, "datetime": 0, "text": 0}
             },
+            "missing_data": {"by_column": {}, "total_missing_cells": 0, "overall_completeness": 100.0},
+            "correlations": {"matrix_available": False},
+            "quality_insights": {},
+            "distribution_insights": {},
             "columns": []
         }
     
@@ -355,20 +399,90 @@ def profile_df(df: pd.DataFrame) -> Dict[str, Any]:
     duplicate_count = df.duplicated().sum()
     duplicate_rows_pct = (duplicate_count / n_rows * 100) if n_rows > 0 else 0.0
     
+    # Missing data analysis
+    missing_data = df.isnull().sum()
+    missing_data_pct = (missing_data / n_rows * 100) if n_rows > 0 else missing_data * 0
+    
+    # Profile each column and analyze types
+    column_profiles = []
+    type_counts = {"numeric": 0, "categorical": 0, "datetime": 0, "text": 0}
+    
+    for column_name in df.columns:
+        column_profile = profile_column(df[column_name], column_name)
+        column_profiles.append(column_profile)
+        type_counts[column_profile["inferred_type"]] += 1
+    
+    # Advanced correlation analysis for numeric columns
+    numeric_columns = [col for col in df.columns if infer_column_type(df[col]) == "numeric"]
+    correlations = {}
+    if len(numeric_columns) > 1:
+        try:
+            corr_matrix = df[numeric_columns].corr()
+            # Find high correlations (> 0.7 or < -0.7)
+            high_correlations = []
+            for i in range(len(corr_matrix.columns)):
+                for j in range(i+1, len(corr_matrix.columns)):
+                    corr_val = corr_matrix.iloc[i, j]
+                    if pd.notna(corr_val) and isinstance(corr_val, (int, float)) and abs(float(corr_val)) > 0.7:
+                        high_correlations.append({
+                            "column1": corr_matrix.columns[i],
+                            "column2": corr_matrix.columns[j],
+                            "correlation": float(corr_val)
+                        })
+            correlations["high_correlations"] = high_correlations
+            correlations["matrix_available"] = True
+        except Exception:
+            correlations["matrix_available"] = False
+    else:
+        correlations["matrix_available"] = False
+    
+    # Data quality insights
+    quality_insights = {
+        "columns_with_missing_data": int((missing_data > 0).sum()),
+        "columns_with_high_missing": int(sum(1 for col in df.columns if missing_data_pct[col] > 20)),
+        "columns_with_all_unique": int(sum(1 for profile in column_profiles if profile.get("n_unique", 0) == n_rows)),
+        "potential_id_columns": [profile["name"] for profile in column_profiles 
+                               if isinstance(profile.get("quality_issues"), dict) and profile["quality_issues"].get("likely_id_column", False)],
+        "columns_with_outliers": [profile["name"] for profile in column_profiles 
+                                if profile.get("outliers_percentage", 0) > 5],
+    }
+    
+    # Distribution analysis for numeric columns
+    distribution_insights = {}
+    if numeric_columns:
+        try:
+            # Skewness analysis
+            skew_analysis = {}
+            for col in numeric_columns:
+                col_profile = next(p for p in column_profiles if p["name"] == col)
+                skewness = col_profile.get("skewness", 0)
+                if abs(skewness) > 1:
+                    skew_analysis[col] = {
+                        "skewness": skewness,
+                        "interpretation": "highly skewed" if abs(skewness) > 2 else "moderately skewed"
+                    }
+            distribution_insights["skewed_columns"] = skew_analysis
+        except Exception:
+            distribution_insights["skewed_columns"] = {}
+    
     dataset_profile = {
         "n_rows": int(n_rows),
         "n_cols": int(n_cols),
         "memory_usage_mb": float(memory_usage_mb),
-        "duplicate_rows_pct": float(duplicate_rows_pct)
+        "duplicate_rows_pct": float(duplicate_rows_pct),
+        "column_types": type_counts
     }
-    
-    # Profile each column
-    column_profiles = []
-    for column_name in df.columns:
-        column_profile = profile_column(df[column_name], column_name)
-        column_profiles.append(column_profile)
     
     return {
         "dataset": dataset_profile,
+        "missing_data": {
+            "by_column": {col: {"count": int(missing_data[col]), "percentage": float(missing_data_pct[col])} 
+                         for col in df.columns if missing_data[col] > 0},
+            "total_missing_cells": int(missing_data.sum()),
+            "overall_completeness": float(100 - (missing_data.sum() / (n_rows * n_cols) * 100)) if n_rows * n_cols > 0 else 100.0
+        },
+        "correlations": correlations,
+        "quality_insights": quality_insights,
+        "distribution_insights": distribution_insights,
         "columns": column_profiles
     }

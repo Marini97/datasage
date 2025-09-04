@@ -80,7 +80,6 @@ Desktop.ini
 *.csv
 *.md
 !README.md
-!IMPLEMENTATION_SUMMARY.md
 !examples/sample_small.csv
 examples/*_output.md
 examples/*_report.md

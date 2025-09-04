@@ -2,9 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main ]
+    branches: [ master ]
 
 jobs:
   test:
@@ -52,6 +50,11 @@ jobs:
       run: |
         # Test that CLI can be imported and shows help
         python -m datasage.cli --help
+    
+    - name: Test web interface imports
+      run: |
+        # Test that web interface can be imported without errors
+        python test_web.py
     
     - name: Upload coverage reports
       if: matrix.python-version == '3.10'

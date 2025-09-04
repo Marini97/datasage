@@ -19,6 +19,7 @@ from rich import print as rprint
 from .profiler import profile_df
 from .prompt_builder import PromptBuilder
 from .model import LocalLLMGenerator
+from .enhanced_generator import EnhancedLLMGenerator
 from .report_formatter import ReportFormatter
 from .verifier import OutputVerifier
 
@@ -73,6 +74,11 @@ def profile(
         None,
         "--model",
         help="Override the default LLM model"
+    ),
+    use_enhanced_fallback: bool = typer.Option(
+        True,
+        "--enhanced-fallback/--no-enhanced-fallback",
+        help="Use enhanced statistical reports when LLM fails (recommended)"
     ),
     max_rows: Optional[int] = typer.Option(
         None,
@@ -153,9 +159,10 @@ def profile(
                 raise typer.Exit(1)
             
             # Step 4: Generate LLM responses
-            task4 = progress.add_task("Generating insights with local LLM...", total=None)
+            task4 = progress.add_task("Generating insights with enhanced LLM...", total=None)
             try:
-                llm_generator = LocalLLMGenerator(model_name=model_name)
+                # Use enhanced generator that tries multiple approaches
+                llm_generator = EnhancedLLMGenerator(preferred_model=model_name)
                 llm_outputs = []
                 
                 for i, prompt in enumerate(prompts):
@@ -167,7 +174,7 @@ def profile(
                     llm_outputs.append(output_text)
                     
                     if debug:
-                        print(f"\n--- LLM Output {i+1} ---", file=sys.stderr)
+                        print(f"\n--- Enhanced LLM Output {i+1} ---", file=sys.stderr)
                         print(output_text, file=sys.stderr)
                         print(f"--- End Output {i+1} ---\n", file=sys.stderr)
                 
@@ -175,14 +182,15 @@ def profile(
                 
             except Exception as e:
                 console.print(f"[red]Error generating LLM responses: {e}[/red]")
-                console.print(f"[yellow]Note: Make sure you have the required dependencies installed:[/yellow]")
-                console.print(f"[yellow]  pip install transformers torch[/yellow]")
+                console.print(f"[yellow]Note: You can install OpenAI library for better results:[/yellow]")
+                console.print(f"[yellow]  pip install openai[/yellow]")
+                console.print(f"[yellow]Or ensure transformers is installed: pip install transformers torch[/yellow]")
                 raise typer.Exit(1)
             
             # Step 5: Format report
             task5 = progress.add_task("Formatting report...", total=None)
             try:
-                formatter = ReportFormatter()
+                formatter = ReportFormatter(use_enhanced_fallback=use_enhanced_fallback)
                 report_title = f"Data Quality Report: {csv_path.name}"
                 report_text = formatter.assemble_report(
                     llm_outputs, 
@@ -302,6 +310,40 @@ def info():
         console.print(f"Max tokens: {model_info['generation_config']['max_new_tokens']}")
     except Exception as e:
         console.print(f"[red]Error loading model info: {e}[/red]")
+
+
+@app.command()
+def web():
+    """🌐 Launch the DataSage web interface (Streamlit GUI)"""
+    import subprocess
+    from pathlib import Path
+    
+    rprint("🔮 Launching DataSage Web Interface...")
+    rprint("📱 The app will open in your browser at [blue]http://localhost:8501[/blue]")
+    rprint("⏹️  Press [red]Ctrl+C[/red] to stop the server")
+    rprint("")
+    
+    # Get the path to the web app
+    web_app_path = Path(__file__).parent / "web_app.py"
+    
+    if not web_app_path.exists():
+        rprint("[red]❌ Could not find web_app.py[/red]")
+        raise typer.Exit(1)
+    
+    try:
+        # Launch streamlit
+        subprocess.run([
+            sys.executable, "-m", "streamlit", "run", 
+            str(web_app_path),
+            "--theme.base=light",
+            "--theme.primaryColor=#1f77b4",
+            "--theme.secondaryBackgroundColor=#f0f2f6"
+        ])
+    except KeyboardInterrupt:
+        rprint("\n👋 DataSage web interface stopped!")
+    except Exception as e:
+        rprint(f"[red]❌ Failed to launch web interface: {e}[/red]")
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":
